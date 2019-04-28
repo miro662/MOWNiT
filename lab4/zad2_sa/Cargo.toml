@@ -1,0 +1,9 @@
+[package]
+name = "zad2_sa"
+version = "0.1.0"
+authors = ["Mirosław Błażej <miro662@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+rand = "*"
+itertools = "*"
