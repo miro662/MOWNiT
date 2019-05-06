@@ -1,9 +1,11 @@
 #[macro_use]
 extern crate itertools;
+extern crate image;
 
 use std::ops::{Add};
-use std::mem::swap;
 use rand::Rng;
+use std::fmt::Debug;
+use image::ImageBuffer;
 
 #[derive(Debug, Copy, Clone)]
 struct Point(isize, isize);
@@ -29,8 +31,8 @@ impl Point {
 fn sqaure_neighbourhood(of: Point) -> Vec<Point> {
     let offsets = vec!{
         Point(-1, 0),
-        //Point(1, 0),
-        //Point(0, -1),
+        Point(1, 0),
+        Point(0, -1),
         //Point(0, 1),
     };
 
@@ -50,7 +52,7 @@ trait Anneable {
     fn get_energy(&self) -> f64;
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 struct Map {
     size: Point,
     data: Vec<bool>
@@ -110,9 +112,14 @@ impl Map {
         let mut swapped = self.clone();
         let (a_point, b_point) = (Point::random(self.size), Point::random(self.size));
         let (a, b) = (self.to_index(a_point), self.to_index(b_point));
+        println!("{} {}", a, b);
         swapped.data[a] = self.data[b];
         swapped.data[b] = self.data[a];
         swapped
+    }
+
+    fn get_pixel(&self, point: Point) -> bool {
+        self.data[self.to_index(point)]
     }
 }
 
@@ -138,14 +145,15 @@ fn metropolis(previous_energy: f64, new_energy: f64, temperature: f64) -> bool {
 }
 
 fn simulated_annealing<T>(initial_state: T, iterations: usize, initial_temperature: f64, temperature_func: impl Fn(f64)->f64) -> T
-where T: Anneable {
+where T: Anneable { 
     let mut state = initial_state;
     let mut energy = state.get_energy();
     let mut t = initial_temperature;
 
-    for iteration in 0..iterations {
+    for _iteration in 0..iterations {
         let neigbour = state.get_neighbour();
         let neigbour_energy = neigbour.get_energy();
+        println!("{}", neigbour_energy);
         if metropolis(energy, neigbour_energy, t) {
             state = neigbour;
             energy = neigbour_energy;
@@ -157,7 +165,22 @@ where T: Anneable {
 }
 
 fn main() {
-    let map = Map::generate(Point(16, 16), 0.5);
-    let final_state = simulated_annealing(map, 100000, 100.0, |t| t * 0.999);
-    println!("{:?}", final_state.data);
+    let size = 16; 
+    let ratio = 0.4;
+    let iterations = 100000;
+    let initial_temperature = 100.0;
+    let temperature_decrease = 0.999;
+
+    let map = Map::generate(Point(size, size), ratio);
+    let final_state = simulated_annealing(map, iterations, initial_temperature, |t| t * temperature_decrease);
+
+    let img = ImageBuffer::from_fn(size as u32, size as u32, move |x, y| {
+        if final_state.get_pixel(Point(x as isize, y as isize)) {
+            image::Luma([0u8])
+        } else {
+            image::Luma([255u8])
+        }
+    });
+
+    img.save("result.png").unwrap();
 }
