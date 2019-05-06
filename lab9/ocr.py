@@ -118,6 +118,26 @@ if __name__ == '__main__':
         # sort in rows by x-position
         row = sorted(row, key=lambda x: x.coords[0])    
 
+        # dedupclicate characters by clustering them
+        char_sets = []
+        for ch in row:
+            ch_size = patterns[ch.char].shape[0]
+            char_set_index = -1
+            for i, (set_x, set_c) in enumerate(char_sets):
+                max_ch_size = min(patterns[c.char].shape[0] for c in (set_c + [ch]))
+                if abs(set_x - ch.coords[0]) < max_ch_size * 0.25:
+                    char_set_index = i
+                    break
+            if char_set_index != -1:
+                l = len(char_sets[char_set_index][1])
+                char_sets[char_set_index][1].append(ch)
+                char_sets[char_set_index] = ((char_sets[char_set_index][0] * l + ch.coords[0]) / (l + 1), char_sets[char_set_index][1])
+            else:
+                char_sets.append((ch.coords[0], [ch]))
+
+        # get strongest characters from clusters
+        row = [sorted(s[1], key=lambda x: x.strength, reverse=True)[0] for s in char_sets]
+
         line = ""
         last_ch_x = row[0].coords[0]
         for ch in row:
