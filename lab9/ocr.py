@@ -8,9 +8,9 @@ import string
 
 from fft_analyse import load_image, analyse, cutoff
 
-size = 40
+size = 40 
 
-def load_font_patterns(characters: str, size: int = 16, face: str = "fonts/arial.ttf"):
+def load_font_patterns(characters: str, face: str = "fonts/arial.ttf"):
     face = freetype.Face(face)
     face.set_char_size(size*64)
     result = {}
@@ -29,7 +29,9 @@ def load_font_patterns(characters: str, size: int = 16, face: str = "fonts/arial
 
 def match_points(image, pattern):
     analysed = analyse(image, pattern)
-    points = cutoff(analysed, 0.9)
+    pattern_max = np.amax(analyse(pattern, pattern))
+
+    points = cutoff(analysed, 0.9, pattern_max=pattern_max)
     return points
 
 
@@ -116,5 +118,13 @@ if __name__ == '__main__':
         # sort in rows by x-position
         row = sorted(row, key=lambda x: x.coords[0])    
 
-        line = ''.join(c.char for c in row)
+        line = ""
+        last_ch_x = row[0].coords[0]
+        for ch in row:
+            distance = ch.coords[0] - last_ch_x
+            ch_size = patterns[ch.char].shape[0]
+            if distance > ch_size * 1.1:
+                line += ' ' 
+            line += ch.char
+            last_ch_x = ch.coords[0]
         print(line)

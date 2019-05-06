@@ -16,12 +16,14 @@ def analyse(image, pattern):
     w, h = image.shape
     pattern_fft = np.fft.fft2(np.rot90(pattern, 2), s=image.shape)
     splot = np.fft.ifft2(np.multiply(image_fft, pattern_fft))
-    return np.real(splot)
+    return np.abs(np.real(splot))
 
 
-def cutoff(result, ratio = 0.9):
+def cutoff(result, ratio=0.9, pattern_max=None):
     points = []
     min_value = np.amax(result) * ratio
+    if pattern_max is not None:
+        min_value = pattern_max * ratio
 
     for y, row in enumerate(result):
         for x, data in enumerate(row):
