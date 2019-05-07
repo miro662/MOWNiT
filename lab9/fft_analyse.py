@@ -38,7 +38,7 @@ def draw_with_rects(image, rects, rect_size):
     ax.imshow(image, cmap='gray', vmin=0, vmax=255)
     for p in rects:
         w, h = rect_size
-        x, y = p
+        x, y, _ = p
         p = (x - w, y - h)
         rect = patches.Rectangle(p,h,w,linewidth=1,edgecolor='r',facecolor='none')
         ax.add_patch(rect)

@@ -5,10 +5,12 @@ from dataclasses import dataclass
 import numpy as np
 import freetype
 import string
+from intervaltree import IntervalTree
 
 from fft_analyse import load_image, analyse, cutoff
 
-size = 40 
+size = 32
+LETTERS = string.ascii_lowercase + string.digits + ",?!/"
 
 def load_font_patterns(characters: str, face: str = "fonts/arial.ttf"):
     face = freetype.Face(face)
@@ -31,7 +33,7 @@ def match_points(image, pattern):
     analysed = analyse(image, pattern)
     pattern_max = np.amax(analyse(pattern, pattern))
 
-    points = cutoff(analysed, 0.9, pattern_max=pattern_max)
+    points = cutoff(analysed, 0.8, pattern_max=pattern_max)
     return points
 
 
@@ -46,11 +48,19 @@ def deduplicate(points):
             if is_duplicate(points[i], points[j]):
                 duplicates.append(j)
         
-        new_point = points[i]
-
+        avg_x = sum(
+            p[0] for a, p in enumerate(points) 
+            if a in duplicates or a == i
+        ) / len(points)
+        avg_y = sum(
+            p[1] for a, p in enumerate(points) 
+            if a in duplicates or a == i
+        ) / len(points)
+        new_point = (avg_x, avg_y)
         # replace duplicates with new point
         for j in duplicates:
             points[j] = points[i]     
+        points = list(set(points))
         i += 1
 
     return set(points)
@@ -71,9 +81,7 @@ class Character:
 
 if __name__ == '__main__':
     img = load_image(sys.argv[1], inverted=True)
-    patterns = load_font_patterns(
-        string.ascii_lowercase + string.digits
-    )
+    patterns = load_font_patterns(LETTERS)
     # find letters and deduplicate
     found_points = {
         letter: deduplicate(match_points(img, pattern)) 
@@ -114,37 +122,40 @@ if __name__ == '__main__':
 
     # sort rows by y-position
     rows = sorted(rows, key=lambda x: x[0])
+    lines = []
     for _, row in rows:
-        # sort in rows by x-position
-        row = sorted(row, key=lambda x: x.coords[0])    
+        # sort in rows by strength
+        row = sorted(row, key=lambda x: x.strength, reverse=True)    
 
-        # dedupclicate characters by clustering them
-        char_sets = []
+        tree = IntervalTree()
         for ch in row:
-            ch_size = patterns[ch.char].shape[0]
-            char_set_index = -1
-            for i, (set_x, set_c) in enumerate(char_sets):
-                max_ch_size = min(patterns[c.char].shape[0] for c in (set_c + [ch]))
-                if abs(set_x - ch.coords[0]) < max_ch_size * 0.25:
-                    char_set_index = i
-                    break
-            if char_set_index != -1:
-                l = len(char_sets[char_set_index][1])
-                char_sets[char_set_index][1].append(ch)
-                char_sets[char_set_index] = ((char_sets[char_set_index][0] * l + ch.coords[0]) / (l + 1), char_sets[char_set_index][1])
-            else:
-                char_sets.append((ch.coords[0], [ch]))
-
-        # get strongest characters from clusters
-        row = [sorted(s[1], key=lambda x: x.strength, reverse=True)[0] for s in char_sets]
-
+            end = ch.coords[0] - 1
+            begin = end - patterns[ch.char].shape[1] + 2  
+            print(ch.char, begin, end, tree.overlap(begin, end))
+            if not tree.overlap(begin, end):
+                tree[begin:end] = ch
+        
+        row_items = sorted((x.data for x in tree.items()), key=lambda x: x.coords[0])
         line = ""
-        last_ch_x = row[0].coords[0]
-        for ch in row:
-            distance = ch.coords[0] - last_ch_x
-            ch_size = patterns[ch.char].shape[0]
-            if distance > ch_size * 1.1:
-                line += ' ' 
+        last = row_items[0]
+        for ch in row_items:
+            if abs(last.coords[0] - ch.coords[0]) > 1.3 * patterns[ch.char].shape[1]:
+                line += ' '
             line += ch.char
-            last_ch_x = ch.coords[0]
-        print(line)
+            last = ch
+        
+        lines.append(line)
+        print()
+    
+    text = '\n'.join(lines)
+    print("result:\n")
+    print(text)
+    print("\noccurences:")
+    occurences = {
+        letter: len(list(ch for ch in text if ch == letter))
+        for letter in LETTERS
+    }
+    for letter, amount in occurences.items():
+        if amount > 0:
+            print("{}:  {}".format(letter, amount))
+
