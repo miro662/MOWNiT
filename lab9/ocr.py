@@ -48,18 +48,11 @@ def deduplicate(points):
             if is_duplicate(points[i], points[j]):
                 duplicates.append(j)
         
-        avg_x = sum(
-            p[0] for a, p in enumerate(points) 
-            if a in duplicates or a == i
-        ) / len(points)
-        avg_y = sum(
-            p[1] for a, p in enumerate(points) 
-            if a in duplicates or a == i
-        ) / len(points)
-        new_point = (avg_x, avg_y)
+        new_point = (points[i][0], points[i][1], max(p[2] for a, p in enumerate(points) if a in [i] + duplicates))
         # replace duplicates with new point
+        points[i] = new_point
         for j in duplicates:
-            points[j] = points[i]     
+            points[j] = new_point 
         points = list(set(points))
         i += 1
 
@@ -69,7 +62,7 @@ def is_duplicate(p1, p2):
     p1x, p1y, _ = p1
     p2x, p2y, _ = p2
     distance = np.sqrt((p2y - p1y) ** 2 + (p2x - p1x) ** 2)
-    return distance < (size / 2)    
+    return distance < (size / 8)    
 
 
 @dataclass
@@ -81,6 +74,10 @@ class Character:
 
 if __name__ == '__main__':
     img = load_image(sys.argv[1], inverted=True)
+    if len(sys.argv) == 4:
+        size = int(sys.argv[2])
+        font = sys.argv[3]
+
     patterns = load_font_patterns(LETTERS)
     # find letters and deduplicate
     found_points = {
